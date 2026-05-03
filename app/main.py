@@ -191,6 +191,9 @@ def rendimiento_por_simbolo():
             SELECT
                 simbolo,
                 fecha,
+                close as precio_cierre,
+                volumen,
+                ((high - low) / low * 100) as volatilidad,
                 ((close - open) / open * 100) as rendimiento
             FROM precios_acciones
             WHERE simbolo = '{sym}'
