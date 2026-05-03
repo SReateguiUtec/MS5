@@ -71,10 +71,22 @@ MOCK_TENDENCIAS = [
 # Athena helpers
 # ---------------------------------------------------------------------------
 
+def get_athena_client():
+    if AWS_KEY and AWS_SECRET:
+        return boto3.client(
+            'athena',
+            aws_access_key_id=AWS_KEY,
+            aws_secret_access_key=AWS_SECRET,
+            aws_session_token=AWS_TOKEN,
+            region_name=AWS_REGION
+        )
+    return boto3.client('athena', region_name=AWS_REGION)
+
 def ejecutar_query_athena(query):
     """Execute a query against Athena and return parsed rows (list of dicts)."""
     try:
-        response = athena_client.start_query_execution(
+        client = get_athena_client()
+        response = client.start_query_execution(
             QueryString=query,
             QueryExecutionContext={'Database': ATHENA_DATABASE},
             ResultConfiguration={'OutputLocation': ATHENA_OUTPUT_BUCKET}
@@ -83,7 +95,7 @@ def ejecutar_query_athena(query):
         query_execution_id = response['QueryExecutionId']
 
         while True:
-            result = athena_client.get_query_execution(QueryExecutionId=query_execution_id)
+            result = client.get_query_execution(QueryExecutionId=query_execution_id)
             status = result['QueryExecution']['Status']['State']
             if status in ['SUCCEEDED', 'FAILED', 'CANCELLED']:
                 break
@@ -95,7 +107,7 @@ def ejecutar_query_athena(query):
             )
             return {'error': error_msg}
 
-        result_response = athena_client.get_query_results(
+        result_response = client.get_query_results(
             QueryExecutionId=query_execution_id
         )
         rows = parse_athena_results(result_response)
@@ -142,11 +154,12 @@ def rendimiento_por_sector():
     def query():
         return ejecutar_query_athena("""
             SELECT
-                sector,
-                AVG(rendimiento) as rendimiento_promedio,
-                COUNT(*) as total_acciones
-            FROM precios_acciones
-            GROUP BY sector
+                s.sector,
+                AVG(((pa.close - pa.open) / pa.open * 100)) as rendimiento_promedio,
+                COUNT(DISTINCT pa.simbolo) as total_acciones
+            FROM precios_acciones pa
+            JOIN simbolos s ON pa.simbolo = s.simbolo
+            GROUP BY s.sector
             ORDER BY rendimiento_promedio DESC
         """)
     return _respond(query, MOCK_RENDIMIENTO_SECTOR)
