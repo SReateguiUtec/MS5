@@ -27,8 +27,8 @@ athena_client = None
 
 try:
     import boto3
+    # Forzamos la creación del cliente. Si no hay llaves, boto3 buscará el IAM Role automáticamente.
     if AWS_KEY and AWS_SECRET:
-        # Credenciales manuales
         athena_client = boto3.client(
             'athena',
             aws_access_key_id=AWS_KEY,
@@ -37,11 +37,11 @@ try:
             region_name=AWS_REGION
         )
     else:
-        # Usar el Rol de la instancia (LabRole)
+        # Modo IAM Role (LabRole)
         athena_client = boto3.client('athena', region_name=AWS_REGION)
-    print("✅ Conectado a AWS Athena")
+    print("✅ Cliente Athena inicializado")
 except Exception as e:
-    print(f"⚠ No se pudo conectar a AWS, activando MOCK MODE: {e}")
+    print(f"⚠ Error inicializando cliente AWS: {e}")
     MOCK_MODE = True
 
 # ---------------------------------------------------------------------------
