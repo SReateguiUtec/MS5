@@ -27,6 +27,8 @@ AWS_SECRET = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_TOKEN = os.getenv('AWS_SESSION_TOKEN')
 AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
 ATHENA_DATABASE = os.getenv('ATHENA_DATABASE', 'fintrend_athena-catalog')
+if not ATHENA_DATABASE.endswith('-catalog'):
+    ATHENA_DATABASE += '-catalog'
 ATHENA_OUTPUT_BUCKET = os.getenv('ATHENA_OUTPUT_BUCKET')
 
 # Si no hay llaves manuales, intentamos usar el IAM Role (LabRole)
@@ -160,14 +162,13 @@ def _respond(real_fn, mock_data):
 @app.route('/api/analitica/rendimiento-sector', methods=['GET'])
 def rendimiento_por_sector():
     def query():
-        db = ATHENA_DATABASE
-        return ejecutar_query_athena(f"""
+        return ejecutar_query_athena("""
             SELECT
                 s.sector,
                 AVG(((pa.close - pa.open) / pa.open * 100)) as rendimiento_promedio,
                 COUNT(DISTINCT pa.simbolo) as total_acciones
-            FROM "{db}".precios_acciones pa
-            JOIN "{db}".simbolos s ON pa.simbolo = s.simbolo
+            FROM precios_acciones pa
+            JOIN simbolos s ON pa.simbolo = s.simbolo
             GROUP BY s.sector
             ORDER BY rendimiento_promedio DESC
         """)
@@ -186,13 +187,12 @@ def rendimiento_por_simbolo():
 
     def query():
         sym = simbolo.upper().replace("'", "''")  # basic SQL injection guard
-        db = ATHENA_DATABASE
         return ejecutar_query_athena(f"""
             SELECT
                 simbolo,
                 fecha,
                 ((close - open) / open * 100) as rendimiento
-            FROM "{db}".precios_acciones
+            FROM precios_acciones
             WHERE simbolo = '{sym}'
             ORDER BY fecha DESC
             LIMIT 100
@@ -206,13 +206,12 @@ def rendimiento_por_simbolo():
 @app.route('/api/analitica/tendencias', methods=['GET'])
 def tendencias_mercado():
     def query():
-        db = ATHENA_DATABASE
-        return ejecutar_query_athena(f"""
+        return ejecutar_query_athena("""
             SELECT
                 DATE_TRUNC('day', CAST(fecha AS TIMESTAMP)) as dia,
                 AVG(close) as precio_promedio,
                 SUM(volumen) as volumen_total
-            FROM "{db}".precios_acciones
+            FROM precios_acciones
             GROUP BY DATE_TRUNC('day', CAST(fecha AS TIMESTAMP))
             ORDER BY dia DESC
             LIMIT 30
@@ -304,14 +303,13 @@ def popularidad_activos():
 def rendimiento_detallado():
     """JOIN Postgres: precios_acciones + simbolos"""
     def query():
-        db = ATHENA_DATABASE
-        return ejecutar_query_athena(f"""
+        return ejecutar_query_athena("""
             SELECT 
                 s.sector,
                 s.industria,
                 AVG(((pa.close - pa.open) / pa.open * 100)) as rendimiento_medio
-            FROM "{db}".precios_acciones pa
-            JOIN "{db}".simbolos s ON pa.simbolo = s.simbolo
+            FROM precios_acciones pa
+            JOIN simbolos s ON pa.simbolo = s.simbolo
             GROUP BY s.sector, s.industria
             ORDER BY rendimiento_medio DESC
         """)
