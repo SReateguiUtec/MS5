@@ -16,6 +16,7 @@ CORS(app)
 
 AWS_KEY = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_TOKEN = os.getenv('AWS_SESSION_TOKEN')
 AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
 ATHENA_DATABASE = os.getenv('ATHENA_DATABASE', 'findtrend')
 ATHENA_OUTPUT_BUCKET = os.getenv('ATHENA_OUTPUT_BUCKET', 's3://findtrend-athena-results')
@@ -29,6 +30,7 @@ if not MOCK_MODE:
         'athena',
         aws_access_key_id=AWS_KEY,
         aws_secret_access_key=AWS_SECRET,
+        aws_session_token=AWS_TOKEN,
         region_name=AWS_REGION
     )
 else:
