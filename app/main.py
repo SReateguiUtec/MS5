@@ -185,11 +185,11 @@ def tendencias_mercado():
     def query():
         return ejecutar_query_athena("""
             SELECT
-                DATE_TRUNC('day', fecha) as dia,
+                DATE_TRUNC('day', CAST(fecha AS TIMESTAMP)) as dia,
                 AVG(close) as precio_promedio,
                 SUM(volumen) as volumen_total
             FROM precios_acciones
-            GROUP BY DATE_TRUNC('day', fecha)
+            GROUP BY DATE_TRUNC('day', CAST(fecha AS TIMESTAMP))
             ORDER BY dia DESC
             LIMIT 30
         """)
@@ -301,7 +301,8 @@ def impacto_noticias():
                 n.sentimiento,
                 AVG(((pa.close - pa.open) / pa.open * 100)) as rendimiento_post_noticia
             FROM noticias n
-            JOIN precios_acciones pa ON n.simbolo = pa.simbolo AND DATE(n.fechaPublicacion) = DATE(pa.fecha)
+            JOIN precios_acciones pa ON n.simbolo = pa.simbolo 
+                AND DATE(CAST(n.fechaPublicacion AS TIMESTAMP)) = DATE(CAST(pa.fecha AS TIMESTAMP))
             GROUP BY n.sentimiento
         """)
     return _respond(query, [{"sentimiento": "Bullish", "rendimiento_post_noticia": "1.8"}])
