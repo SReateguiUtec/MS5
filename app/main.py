@@ -5,6 +5,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# --- FORZAR USO DE LABROLE ---
+# Si las variables de entorno tienen los valores falsos por defecto, las eliminamos
+# para que boto3 utilice automáticamente las credenciales del LabRole de la máquina EC2.
+if os.environ.get('AWS_ACCESS_KEY_ID') == 'YOUR_AWS_ACCESS_KEY':
+    del os.environ['AWS_ACCESS_KEY_ID']
+if os.environ.get('AWS_SECRET_ACCESS_KEY') == 'YOUR_AWS_SECRET_KEY':
+    del os.environ['AWS_SECRET_ACCESS_KEY']
+
 app = Flask(__name__)
 CORS(app)
 
