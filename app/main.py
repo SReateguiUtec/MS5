@@ -160,13 +160,14 @@ def _respond(real_fn, mock_data):
 @app.route('/api/analitica/rendimiento-sector', methods=['GET'])
 def rendimiento_por_sector():
     def query():
-        return ejecutar_query_athena("""
+        db = ATHENA_DATABASE
+        return ejecutar_query_athena(f"""
             SELECT
                 s.sector,
                 AVG(((pa.close - pa.open) / pa.open * 100)) as rendimiento_promedio,
                 COUNT(DISTINCT pa.simbolo) as total_acciones
-            FROM precios_acciones pa
-            JOIN simbolos s ON pa.simbolo = s.simbolo
+            FROM "{db}".precios_acciones pa
+            JOIN "{db}".simbolos s ON pa.simbolo = s.simbolo
             GROUP BY s.sector
             ORDER BY rendimiento_promedio DESC
         """)
@@ -185,12 +186,13 @@ def rendimiento_por_simbolo():
 
     def query():
         sym = simbolo.upper().replace("'", "''")  # basic SQL injection guard
+        db = ATHENA_DATABASE
         return ejecutar_query_athena(f"""
             SELECT
                 simbolo,
                 fecha,
                 ((close - open) / open * 100) as rendimiento
-            FROM precios_acciones
+            FROM "{db}".precios_acciones
             WHERE simbolo = '{sym}'
             ORDER BY fecha DESC
             LIMIT 100
@@ -204,12 +206,13 @@ def rendimiento_por_simbolo():
 @app.route('/api/analitica/tendencias', methods=['GET'])
 def tendencias_mercado():
     def query():
-        return ejecutar_query_athena("""
+        db = ATHENA_DATABASE
+        return ejecutar_query_athena(f"""
             SELECT
                 DATE_TRUNC('day', CAST(fecha AS TIMESTAMP)) as dia,
                 AVG(close) as precio_promedio,
                 SUM(volumen) as volumen_total
-            FROM precios_acciones
+            FROM "{db}".precios_acciones
             GROUP BY DATE_TRUNC('day', CAST(fecha AS TIMESTAMP))
             ORDER BY dia DESC
             LIMIT 30
@@ -301,13 +304,14 @@ def popularidad_activos():
 def rendimiento_detallado():
     """JOIN Postgres: precios_acciones + simbolos"""
     def query():
-        return ejecutar_query_athena("""
+        db = ATHENA_DATABASE
+        return ejecutar_query_athena(f"""
             SELECT 
                 s.sector,
                 s.industria,
                 AVG(((pa.close - pa.open) / pa.open * 100)) as rendimiento_medio
-            FROM precios_acciones pa
-            JOIN simbolos s ON pa.simbolo = s.simbolo
+            FROM "{db}".precios_acciones pa
+            JOIN "{db}".simbolos s ON pa.simbolo = s.simbolo
             GROUP BY s.sector, s.industria
             ORDER BY rendimiento_medio DESC
         """)
