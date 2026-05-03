@@ -18,24 +18,31 @@ AWS_KEY = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_TOKEN = os.getenv('AWS_SESSION_TOKEN')
 AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
-ATHENA_DATABASE = os.getenv('ATHENA_DATABASE', 'findtrend')
-ATHENA_OUTPUT_BUCKET = os.getenv('ATHENA_OUTPUT_BUCKET', 's3://findtrend-athena-results')
+ATHENA_DATABASE = os.getenv('ATHENA_DATABASE', 'fintrend_athena-catalog')
+ATHENA_OUTPUT_BUCKET = os.getenv('ATHENA_OUTPUT_BUCKET')
 
-MOCK_MODE = not (AWS_KEY and AWS_SECRET)
+# Si no hay llaves manuales, intentamos usar el IAM Role (LabRole)
+MOCK_MODE = os.getenv('MOCK_MODE', 'false').lower() == 'true'
 athena_client = None
 
-if not MOCK_MODE:
+try:
     import boto3
-    athena_client = boto3.client(
-        'athena',
-        aws_access_key_id=AWS_KEY,
-        aws_secret_access_key=AWS_SECRET,
-        aws_session_token=AWS_TOKEN,
-        region_name=AWS_REGION
-    )
-else:
-    print("⚠  MS5 arrancando en MOCK MODE — sin credenciales AWS. "
-          "Los endpoints devuelven datos de ejemplo.")
+    if AWS_KEY and AWS_SECRET:
+        # Credenciales manuales
+        athena_client = boto3.client(
+            'athena',
+            aws_access_key_id=AWS_KEY,
+            aws_secret_access_key=AWS_SECRET,
+            aws_session_token=AWS_TOKEN,
+            region_name=AWS_REGION
+        )
+    else:
+        # Usar el Rol de la instancia (LabRole)
+        athena_client = boto3.client('athena', region_name=AWS_REGION)
+    print("✅ Conectado a AWS Athena")
+except Exception as e:
+    print(f"⚠ No se pudo conectar a AWS, activando MOCK MODE: {e}")
+    MOCK_MODE = True
 
 # ---------------------------------------------------------------------------
 # Mock data (used when MOCK_MODE is True)
