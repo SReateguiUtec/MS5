@@ -142,12 +142,13 @@ def rendimiento_por_sector():
     def query():
         return ejecutar_query_athena("""
             SELECT
-                sector,
-                AVG(rendimiento) as rendimiento_promedio,
+                simbolo as sector,
+                AVG(((close - open) / open * 100)) as rendimiento_promedio,
                 COUNT(*) as total_acciones
             FROM precios_acciones
-            GROUP BY sector
+            GROUP BY simbolo
             ORDER BY rendimiento_promedio DESC
+            LIMIT 10
         """)
     return _respond(query, MOCK_RENDIMIENTO_SECTOR)
 
@@ -261,16 +262,15 @@ def crear_vistas():
 
 @app.route('/api/analitica/popularidad-activos', methods=['GET'])
 def popularidad_activos():
-    """JOIN MySQL: portafolios + favoritos"""
+    """Calcula los activos con más menciones en noticias."""
     def query():
         return ejecutar_query_athena("""
-            SELECT 
-                f.simbolo, 
+            SELECT
+                simbolo,
                 COUNT(*) as menciones,
-                ARRAY_JOIN(ARRAY_AGG(DISTINCT p.nombre), ', ') as estrategias
-            FROM favoritos f
-            JOIN portafolios p ON f.portafolio_id = p.id
-            GROUP BY f.simbolo
+                'Noticias de Mercado' as estrategias
+            FROM noticias
+            GROUP BY simbolo
             ORDER BY menciones DESC
             LIMIT 10
         """)
