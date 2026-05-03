@@ -82,8 +82,8 @@ def _respond(real_fn, mock_data):
 def rendimiento_por_sector():
     def query():
         return ejecutar_query_athena("""
-            SELECT simbolo as sector, AVG(((close - open) / open * 100)) as rendimiento_promedio, COUNT(*) as total_acciones
-            FROM precios_acciones GROUP BY simbolo ORDER BY rendimiento_promedio DESC LIMIT 10
+            SELECT simbolo as sector, AVG(((close - open) / open * 100)) as rendimiento_medio, COUNT(*) as total_acciones
+            FROM precios_acciones GROUP BY simbolo ORDER BY rendimiento_medio DESC LIMIT 10
         """)
     return _respond(query, MOCK_RENDIMIENTO_SECTOR)
 
