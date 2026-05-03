@@ -109,7 +109,7 @@ def ejecutar_query_athena(query):
 
 def parse_athena_results(response):
     """Convert Athena ResultSet into a plain list of dicts, skipping the header row."""
-    metadata = response['ResultSet']['Metadata']['ColumnInfo']
+    metadata = response['ResultSet']['ResultSetMetadata']['ColumnInfo']
     columns = [col['Label'] for col in metadata]
     rows = response['ResultSet']['Rows']
 
@@ -326,6 +326,6 @@ if __name__ == '__main__':
     try:
         crear_vistas()
     except Exception as e:
-        print(f"Error al crear vistas iniciales: {e}")
+        print(f"⚠ Aviso al crear vistas iniciales: {e}")
         
     app.run(host='0.0.0.0', port=5005, debug=True)
