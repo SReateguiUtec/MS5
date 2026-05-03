@@ -209,7 +209,113 @@ def health():
         'mode': 'mock' if MOCK_MODE else 'production',
         'athena_database': ATHENA_DATABASE
     })
+    
+# ---------------------------------------------------------------------------
+# Gestión de Vistas Athena
+# ---------------------------------------------------------------------------
 
+def crear_vistas():
+    """Inicializa las vistas de Athena si no existen."""
+    if MOCK_MODE: return
+    
+    vistas = {
+        "vista_rendimiento_estrategia": f"""
+            CREATE OR REPLACE VIEW vista_rendimiento_estrategia AS
+            SELECT 
+                p.nombre as estrategia,
+                f.simbolo,
+                AVG(((pa.close - pa.open) / pa.open * 100)) as rendimiento_promedio
+            FROM portafolios p
+            JOIN favoritos f ON p.id = f.portafolio_id
+            JOIN precios_acciones pa ON f.simbolo = pa.simbolo
+            GROUP BY p.nombre, f.simbolo
+        """,
+        "vista_sentimiento_sectorial": f"""
+            CREATE OR REPLACE VIEW vista_sentimiento_sectorial AS
+            SELECT 
+                s.sector,
+                n.sentimiento,
+                COUNT(*) as total_noticias
+            FROM noticias n
+            JOIN simbolos s ON n.simbolo = s.simbolo
+            GROUP BY s.sector, n.sentimiento
+        """
+    }
+    
+    for nombre, sql in vistas.items():
+        print(f"Creando vista {nombre}...")
+        ejecutar_query_athena(sql)
+
+# ---------------------------------------------------------------------------
+# Endpoints Complejos (JOINs)
+# ---------------------------------------------------------------------------
+
+@app.route('/api/analitica/popularidad-activos', methods=['GET'])
+def popularidad_activos():
+    """JOIN MySQL: portafolios + favoritos"""
+    def query():
+        return ejecutar_query_athena("""
+            SELECT 
+                f.simbolo, 
+                COUNT(*) as menciones,
+                ARRAY_JOIN(ARRAY_AGG(DISTINCT p.nombre), ', ') as estrategias
+            FROM favoritos f
+            JOIN portafolios p ON f.portafolio_id = p.id
+            GROUP BY f.simbolo
+            ORDER BY menciones DESC
+            LIMIT 10
+        """)
+    return _respond(query, [{"simbolo": "AAPL", "menciones": 150, "estrategias": "Growth, Tech"}])
+
+@app.route('/api/analitica/rendimiento-detallado', methods=['GET'])
+def rendimiento_detallado():
+    """JOIN Postgres: precios_acciones + simbolos"""
+    def query():
+        return ejecutar_query_athena("""
+            SELECT 
+                s.sector,
+                s.industria,
+                AVG(((pa.close - pa.open) / pa.open * 100)) as rendimiento_medio
+            FROM precios_acciones pa
+            JOIN simbolos s ON pa.simbolo = s.simbolo
+            GROUP BY s.sector, s.industria
+            ORDER BY rendimiento_medio DESC
+        """)
+    return _respond(query, [{"sector": "Technology", "industria": "Software", "rendimiento_medio": "2.5"}])
+
+@app.route('/api/analitica/impacto-noticias', methods=['GET'])
+def impacto_noticias():
+    """JOIN Mongo + Postgres: noticias + precios_acciones"""
+    def query():
+        return ejecutar_query_athena("""
+            SELECT 
+                n.sentimiento,
+                AVG(((pa.close - pa.open) / pa.open * 100)) as rendimiento_post_noticia
+            FROM noticias n
+            JOIN precios_acciones pa ON n.simbolo = pa.simbolo AND DATE(n.fechaPublicacion) = DATE(pa.fecha)
+            GROUP BY n.sentimiento
+        """)
+    return _respond(query, [{"sentimiento": "Bullish", "rendimiento_post_noticia": "1.8"}])
+
+@app.route('/api/analitica/volumen-bolsa', methods=['GET'])
+def volumen_bolsa():
+    """JOIN Postgres: precios_acciones + simbolos"""
+    def query():
+        return ejecutar_query_athena("""
+            SELECT 
+                s.bolsa,
+                SUM(pa.volumen) as volumen_total
+            FROM precios_acciones pa
+            JOIN simbolos s ON pa.simbolo = s.simbolo
+            GROUP BY s.bolsa
+        """)
+    return _respond(query, [{"bolsa": "NASDAQ", "volumen_total": "5000000000"}])
 
 if __name__ == '__main__':
+    # Intentar crear vistas al arrancar
+    try:
+        crear_vistas()
+    except Exception as e:
+        print(f"Error al crear vistas iniciales: {e}")
+        
     app.run(host='0.0.0.0', port=5005, debug=True)
