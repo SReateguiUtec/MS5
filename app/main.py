@@ -161,8 +161,10 @@ def _respond(real_fn, mock_data):
 
 @app.route('/api/analitica/rendimiento-sector', methods=['GET'])
 def rendimiento_por_sector():
-    def query():
-        return ejecutar_query_athena("""
+    periodo = request.args.get('periodo', '30d')
+    
+    if periodo == 'diario':
+        sql = """
             SELECT
                 s.sector,
                 AVG(((pa.close - pa.open) / pa.open * 100)) as rendimiento_promedio,
@@ -171,8 +173,60 @@ def rendimiento_por_sector():
             JOIN simbolos s ON pa.simbolo = s.simbolo
             GROUP BY s.sector
             ORDER BY rendimiento_promedio DESC
-        """)
-    return _respond(query, MOCK_RENDIMIENTO_SECTOR)
+        """
+        mock = [
+            {"sector": "Technology", "rendimiento_promedio": "0.15", "total_acciones": "5"},
+            {"sector": "Finance",    "rendimiento_promedio": "0.08", "total_acciones": "4"},
+        ]
+    elif periodo == '6m':
+        sql = """
+            SELECT 
+                s.sector,
+                AVG(r.rendimiento_6m) as rendimiento_promedio,
+                COUNT(DISTINCT r.simbolo) as total_acciones
+            FROM (
+                SELECT 
+                    simbolo,
+                    ((max_by(close, fecha) - min_by(open, fecha)) / min_by(open, fecha) * 100) as rendimiento_6m
+                FROM precios_acciones
+                WHERE CAST(fecha AS TIMESTAMP) >= current_date - interval '180' day
+                GROUP BY simbolo
+            ) r
+            JOIN simbolos s ON r.simbolo = s.simbolo
+            GROUP BY s.sector
+            ORDER BY rendimiento_promedio DESC
+        """
+        mock = [
+            {"sector": "Technology", "rendimiento_promedio": "45.20", "total_acciones": "5"},
+            {"sector": "Finance",    "rendimiento_promedio": "22.15", "total_acciones": "4"},
+        ]
+    else: # Default 30d
+        sql = """
+            SELECT 
+                s.sector,
+                AVG(r.rendimiento_30d) as rendimiento_promedio,
+                COUNT(DISTINCT r.simbolo) as total_acciones
+            FROM (
+                SELECT 
+                    simbolo,
+                    ((max_by(close, fecha) - min_by(open, fecha)) / min_by(open, fecha) * 100) as rendimiento_30d
+                FROM precios_acciones
+                WHERE CAST(fecha AS TIMESTAMP) >= current_date - interval '30' day
+                GROUP BY simbolo
+            ) r
+            JOIN simbolos s ON r.simbolo = s.simbolo
+            GROUP BY s.sector
+            ORDER BY rendimiento_promedio DESC
+        """
+        mock = [
+            {"sector": "Technology", "rendimiento_promedio": "12.45", "total_acciones": "5"},
+            {"sector": "Finance",    "rendimiento_promedio": "8.32", "total_acciones": "4"},
+        ]
+
+    def query():
+        return ejecutar_query_athena(sql)
+    
+    return _respond(query, mock)
 
 
 @app.route('/api/analitica/rendimiento-simbolo', methods=['GET'])
