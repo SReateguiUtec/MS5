@@ -284,21 +284,6 @@ def popularidad_activos():
         """)
     return _respond(query, [{"simbolo": "AAPL", "menciones": 150, "estrategias": "Growth, Tech"}])
 
-@app.route('/api/analitica/rendimiento-detallado', methods=['GET'])
-def rendimiento_detallado():
-    """JOIN Postgres: precios_acciones + simbolos"""
-    def query():
-        return ejecutar_query_athena("""
-            SELECT 
-                s.sector,
-                s.industria,
-                AVG(((pa.close - pa.open) / pa.open * 100)) as rendimiento_medio
-            FROM precios_acciones pa
-            JOIN simbolos s ON pa.simbolo = s.simbolo
-            GROUP BY s.sector, s.industria
-            ORDER BY rendimiento_medio DESC
-        """)
-    return _respond(query, [{"sector": "Technology", "industria": "Software", "rendimiento_medio": "2.5"}])
 
 @app.route('/api/analitica/impacto-noticias', methods=['GET'])
 def impacto_noticias():
