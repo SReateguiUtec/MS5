@@ -246,40 +246,22 @@ def health():
     })
     
 # ---------------------------------------------------------------------------
-# Gestión de Vistas Athena
+# Endpoints Complejos (Usando Vistas de Athena)
 # ---------------------------------------------------------------------------
 
-def crear_vistas():
-    """Inicializa las vistas de Athena si no existen."""
-    if MOCK_MODE: return
-    
-    vistas = {
-        "vista_rendimiento_estrategia": f"""
-            CREATE OR REPLACE VIEW vista_rendimiento_estrategia AS
-            SELECT 
-                p.nombre as estrategia,
-                f.simbolo,
-                AVG(((pa.close - pa.open) / pa.open * 100)) as rendimiento_promedio
-            FROM portafolios p
-            JOIN favoritos f ON p.id = f.portafolio_id
-            JOIN precios_acciones pa ON f.simbolo = pa.simbolo
-            GROUP BY p.nombre, f.simbolo
-        """,
-        "vista_sentimiento_sectorial": f"""
-            CREATE OR REPLACE VIEW vista_sentimiento_sectorial AS
-            SELECT 
-                s.sector,
-                n.sentimiento,
-                COUNT(*) as total_noticias
-            FROM noticias n
-            JOIN simbolos s ON n.simbolo = s.simbolo
-            GROUP BY s.sector, n.sentimiento
-        """
-    }
-    
-    for nombre, sql in vistas.items():
-        print(f"Creando vista {nombre}...")
-        ejecutar_query_athena(sql)
+@app.route('/api/analitica/rendimiento-detallado', methods=['GET'])
+def rendimiento_detallado():
+    """Consume la vista vista_rendimiento_estrategia definida en Athena"""
+    def query():
+        return ejecutar_query_athena("SELECT * FROM vista_rendimiento_estrategia")
+    return _respond(query, [{"estrategia": "Growth", "simbolo": "AAPL", "rendimiento_promedio": "2.5"}])
+
+@app.route('/api/analitica/sentimiento-sectorial', methods=['GET'])
+def sentimiento_sectorial():
+    """Consume la vista vista_sentimiento_sectorial definida en Athena"""
+    def query():
+        return ejecutar_query_athena("SELECT * FROM vista_sentimiento_sectorial")
+    return _respond(query, [{"sector": "Technology", "sentimiento": "Bullish", "total_noticias": 10}])
 
 # ---------------------------------------------------------------------------
 # Endpoints Complejos (JOINs)
@@ -348,10 +330,4 @@ def volumen_bolsa():
     return _respond(query, [{"bolsa": "NASDAQ", "volumen_total": "5000000000"}])
 
 if __name__ == '__main__':
-    # Intentar crear vistas al arrancar
-    try:
-        crear_vistas()
-    except Exception as e:
-        print(f"⚠ Aviso al crear vistas iniciales: {e}")
-        
     app.run(host='0.0.0.0', port=5005, debug=True)
