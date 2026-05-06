@@ -189,7 +189,7 @@ def rendimiento_por_sector():
                     simbolo,
                     ((max_by(close, fecha) - min_by(open, fecha)) / min_by(open, fecha) * 100) as rendimiento_6m
                 FROM precios_acciones
-                WHERE CAST(fecha AS TIMESTAMP) >= current_date - interval '180' day
+                WHERE TRY_CAST(fecha AS TIMESTAMP) >= current_date - interval '180' day
                 GROUP BY simbolo
             ) r
             JOIN simbolos s ON r.simbolo = s.simbolo
@@ -211,7 +211,7 @@ def rendimiento_por_sector():
                     simbolo,
                     ((max_by(close, fecha) - min_by(open, fecha)) / min_by(open, fecha) * 100) as rendimiento_30d
                 FROM precios_acciones
-                WHERE CAST(fecha AS TIMESTAMP) >= current_date - interval '30' day
+                WHERE TRY_CAST(fecha AS TIMESTAMP) >= current_date - interval '30' day
                 GROUP BY simbolo
             ) r
             JOIN simbolos s ON r.simbolo = s.simbolo
@@ -265,11 +265,11 @@ def tendencias_mercado():
     def query():
         return ejecutar_query_athena("""
             SELECT
-                DATE_TRUNC('day', CAST(fecha AS TIMESTAMP)) as dia,
+                DATE_TRUNC('day', TRY_CAST(fecha AS TIMESTAMP)) as dia,
                 AVG(close) as precio_promedio,
                 SUM(volumen) as volumen_total
             FROM precios_acciones
-            GROUP BY DATE_TRUNC('day', CAST(fecha AS TIMESTAMP))
+            GROUP BY DATE_TRUNC('day', TRY_CAST(fecha AS TIMESTAMP))
             ORDER BY dia DESC
             LIMIT 30
         """)
@@ -305,10 +305,22 @@ def health():
 
 @app.route('/api/analitica/rendimiento-detallado', methods=['GET'])
 def rendimiento_detallado():
-    """Consume la vista vista_rendimiento_estrategia definida en Athena"""
+    """Consume la nueva vista rápida vista_noticias_sectoriales definida en Athena"""
     def query():
-        return ejecutar_query_athena("SELECT * FROM vista_rendimiento_estrategia")
-    return _respond(query, [{"estrategia": "Growth", "simbolo": "AAPL", "rendimiento_promedio": "2.5"}])
+        return ejecutar_query_athena("""
+            SELECT
+                sector,
+                CASE
+                    WHEN sentimiento = '0' OR sentimiento IS NULL THEN 'Neutral'
+                    ELSE sentimiento
+                END as sentimiento,
+                SUM(CAST(volumen_noticias AS BIGINT)) as volumen_noticias
+            FROM vista_noticias_sectoriales
+            GROUP BY sector, 2
+            ORDER BY volumen_noticias DESC
+            LIMIT 20
+        """)
+    return _respond(query, [{"sector": "Technology", "sentimiento": "Bullish", "volumen_noticias": "42"}])
 
 @app.route('/api/analitica/sentimiento-sectorial', methods=['GET'])
 def sentimiento_sectorial():
@@ -345,12 +357,15 @@ def impacto_noticias():
     def query():
         return ejecutar_query_athena("""
             SELECT 
-                n.sentimiento,
+                CASE 
+                    WHEN n.sentimiento = '0' OR n.sentimiento IS NULL THEN 'Neutral'
+                    ELSE n.sentimiento
+                END as sentimiento,
                 AVG(((pa.close - pa.open) / pa.open * 100)) as rendimiento_post_noticia
             FROM noticias n
             JOIN precios_acciones pa ON n.simbolo = pa.simbolo 
-                AND DATE(CAST(n.fechaPublicacion AS TIMESTAMP)) = DATE(CAST(pa.fecha AS TIMESTAMP))
-            GROUP BY n.sentimiento
+                AND DATE(TRY_CAST(n.fechaPublicacion AS TIMESTAMP)) = DATE(TRY_CAST(pa.fecha AS TIMESTAMP))
+            GROUP BY 1
         """)
     return _respond(query, [{"sentimiento": "Bullish", "rendimiento_post_noticia": "1.8"}])
 
