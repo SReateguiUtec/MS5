@@ -305,7 +305,7 @@ def health():
 
 @app.route('/api/analitica/rendimiento-detallado', methods=['GET'])
 def rendimiento_detallado():
-    """Consume la nueva vista rápida vista_noticias_sectoriales definida en Athena"""
+    """Consume la vista rápida vista_noticias_sectoriales definida en Athena"""
     def query():
         return ejecutar_query_athena("""
             SELECT
@@ -322,12 +322,25 @@ def rendimiento_detallado():
         """)
     return _respond(query, [{"sector": "Technology", "sentimiento": "Bullish", "volumen_noticias": "42"}])
 
-@app.route('/api/analitica/sentimiento-sectorial', methods=['GET'])
-def sentimiento_sectorial():
-    """Consume la vista vista_sentimiento_sectorial definida en Athena"""
+@app.route('/api/analitica/alertas-contradiccion', methods=['GET'])
+def alertas_contradiccion():
+    """Consume la vista vista_alertas_contradiccion: activos con alta volatilidad y noticias bullish"""
     def query():
-        return ejecutar_query_athena("SELECT * FROM vista_sentimiento_sectorial")
-    return _respond(query, [{"sector": "Technology", "sentimiento": "Bullish", "total_noticias": 10}])
+        return ejecutar_query_athena("""
+            SELECT *
+            FROM vista_alertas_contradiccion
+            ORDER BY volatilidad_promedio DESC
+            LIMIT 10
+        """)
+    return _respond(query, [
+        {"simbolo": "AAPL", "volatilidad_promedio": "3.21", "noticias_bullish": "12", "noticias_bearish": "2", "total_noticias": "14"},
+        {"simbolo": "TSLA", "volatilidad_promedio": "2.85", "noticias_bullish": "8",  "noticias_bearish": "5", "total_noticias": "13"},
+    ])
+
+# NOTA: sentimiento-sectorial desactivado — la vista vista_sentimiento_sectorial
+# es duplicada de vista_noticias_sectoriales y será eliminada del catálogo.
+# @app.route('/api/analitica/sentimiento-sectorial', methods=['GET'])
+
 
 # ---------------------------------------------------------------------------
 # Endpoints Complejos (JOINs)
