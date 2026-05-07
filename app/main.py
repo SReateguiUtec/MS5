@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from flasgger import Swagger
 import os
 from dotenv import load_dotenv
 
@@ -15,6 +16,22 @@ if os.environ.get('AWS_SECRET_ACCESS_KEY') == 'YOUR_AWS_SECRET_KEY':
 
 app = Flask(__name__)
 CORS(app)
+
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": 'apispec_1',
+            "route": '/apispec_1.json',
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
+        }
+    ],
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
+    "specs_route": "/swagger-ui/m5"
+}
+swagger = Swagger(app, config=swagger_config)
 
 # ---------------------------------------------------------------------------
 # Athena client — only initialised when real AWS credentials are present.
@@ -161,6 +178,20 @@ def _respond(real_fn, mock_data):
 
 @app.route('/api/analitica/rendimiento-sector', methods=['GET'])
 def rendimiento_por_sector():
+    """
+    Rendimiento por Sector
+    ---
+    tags:
+      - Analítica
+    parameters:
+      - name: periodo
+        in: query
+        type: string
+        description: 'diario, 6m o 30d'
+    responses:
+      200:
+        description: Rendimiento promedio por sector
+    """
     periodo = request.args.get('periodo', '30d')
     
     if periodo == 'diario':
@@ -231,6 +262,22 @@ def rendimiento_por_sector():
 
 @app.route('/api/analitica/rendimiento-simbolo', methods=['GET'])
 def rendimiento_por_simbolo():
+    """
+    Rendimiento de un Símbolo
+    ---
+    tags:
+      - Analítica
+    parameters:
+      - name: simbolo
+        in: query
+        type: string
+        required: true
+    responses:
+      200:
+        description: Rendimiento histórico del símbolo
+      400:
+        description: Parámetro requerido
+    """
     simbolo = request.args.get('simbolo')
     if not simbolo:
         return jsonify({'error': 'Parámetro simbolo requerido'}), 400
@@ -262,6 +309,15 @@ def rendimiento_por_simbolo():
 
 @app.route('/api/analitica/tendencias', methods=['GET'])
 def tendencias_mercado():
+    """
+    Tendencias Generales del Mercado
+    ---
+    tags:
+      - Analítica
+    responses:
+      200:
+        description: Tendencias de los últimos 30 días
+    """
     def query():
         return ejecutar_query_athena("""
             SELECT
