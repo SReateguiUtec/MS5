@@ -21,13 +21,13 @@ swagger_config = {
     "headers": [],
     "specs": [
         {
-            "endpoint": 'apispec_1',
-            "route": '/apispec_1.json',
+            "endpoint": 'apispec_m5',
+            "route": '/apispec_m5.json',
             "rule_filter": lambda rule: True,
             "model_filter": lambda tag: True,
         }
     ],
-    "static_url_path": "/flasgger_static",
+    "static_url_path": "/flasgger_static_m5",
     "swagger_ui": True,
     "specs_route": "/swagger-ui/m5"
 }
